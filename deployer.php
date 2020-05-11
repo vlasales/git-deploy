@@ -10,6 +10,9 @@ $branch = defined('BRANCH') ? BRANCH : "refs/heads/master";
 class ForbidException extends Exception {
 }
 
+class DirectoryException extends Exception {
+}
+
 class Logger {
     function __construct($logfile) {
         $this->log = fopen($logfile, "a");
@@ -92,16 +95,20 @@ try {
 $log->write($content);
 
 // ensure directory is a repository
-if (file_exists($DIR . ".git") && is_dir($DIR)) {
-    // prepare the generic error
-    $error = "=== ERROR: DIR `$DIR` is not a repository ===\n";
-    // try to detemrine the real error
+try {
     if (!file_exists($DIR)) {
-        $error = "=== ERROR: DIR `$DIR` does not exist ===\n";
-    } elseif (!is_dir($DIR)) {
-        $error = "=== ERROR: DIR `$DIR` is not a directory ===\n";
+        throw new DirectoryException("`$DIR` does not exist", 400);
     }
-    http_response_code(400);
+    if (!is_dir($DIR)) {
+        throw new DirectoryException("`$DIR` is not a directory", 400);
+    }
+    if (!file_exists($DIR . ".git")) {
+        throw new DirectoryException("`$DIR` is not a repository", 400);
+    }
+} catch (DirectoryException $e) {
+    $error = "=== ERROR: DIR " . $e->getMessage() . " ===\n";
+    $code = $e->getCode();
+    http_response_code($code);
     $log->write($error);
     echo $error;
     exit;
